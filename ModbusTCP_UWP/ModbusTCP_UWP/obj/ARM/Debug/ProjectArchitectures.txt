@@ -1,0 +1,1 @@
+C:\Users\Jacob\OneDrive - USN\Master Thesis\Application\MasterThesisApplications\ModbusTCP_UWP\ModbusTCP_UWP\ModbusTCP_UWP.csproj;arm

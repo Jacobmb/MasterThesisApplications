@@ -38,21 +38,21 @@ namespace ModbusTCPIP_Consoleapp
                 {
                     try
                     {
-                        string[] readtext = File.ReadAllLines(@"C:/Users/Jacob/Documents/Pressure.txt");
+                        string[] readtext = File.ReadAllLines(@"C:/Users/Jacob/Documents/Pressure.txt"); //reading all lines in pressure.txt
                         foreach (string s in readtext)
                         {
                             sqlconnRetry.Open();
-                            string query = "INSERT INTO SensorData (ApplicationType, PressureData, logtimeapp)";//Sql command
+                            string query = "INSERT INTO SensorData (ApplicationType, PressureData, logtimeapp)";//Sql query to be sent to database
                             query += " VALUES (@ApplicationType,@PressureData,@logtimeapp )";
                             SqlCommand cmd = new SqlCommand(query, sqlconnRetry);
 
-                            cmd.Parameters.AddWithValue("@ApplicationType", "ConsoleApp");
+                            cmd.Parameters.AddWithValue("@ApplicationType", "ConsoleApp");//adding parameters to the sql command
                             cmd.Parameters.AddWithValue("@PressureData", s);
                             cmd.Parameters.AddWithValue("@logtimeapp", DateTime.Now);
-                            cmd.ExecuteNonQuery();
-                            sqlconnRetry.Close();
+                            cmd.ExecuteNonQuery();//executing sql command
+                            sqlconnRetry.Close(); //closing the database connection from sqlconnectionRetry
                         }
-                        File.Delete(@"C:/Users/Jacob/Documents/Pressure.txt");
+                        File.Delete(@"C:/Users/Jacob/Documents/Pressure.txt");//deleting pressure.txt, making room for a new if database connection fails
 
                     }
                     catch (Exception e)
@@ -62,16 +62,15 @@ namespace ModbusTCPIP_Consoleapp
                 }
             }
 
-            Queue<string> Pressure = new Queue<string>(360);//hvert 5 sekund i 30 minutter. 360 datalinjer på 30 min.
+            Queue<string> Pressure = new Queue<string>(360);//queue structure with 360 lines of data available
 
-            ModbusClient modbusclient = new ModbusClient(ipadress, portnumber); //192.168.50.164 for stasjonær, 192.168.50.8 for laptop
-                                                                                // modbusclient.Connect();
+            ModbusClient modbusclient = new ModbusClient(ipadress, portnumber); //creating new instance of ModbusClient, with ip-address and port number taken from config.cs
 
 
             ///
             /// Login logic to the Modbus server ///
             /// 
-            for (int loginTries = 0; ; loginTries++) //login check. fungerer fint. HUSK Å ADDE REFERANSE TIL KILDEKODEN DU HAR BRUKT SOM UTGANGSPUNKT
+            for (int loginTries = 0; ; loginTries++) //login check to modbus server 
             {
                 try
                 {
@@ -97,18 +96,19 @@ namespace ModbusTCPIP_Consoleapp
                     {
                         Console.WriteLine("Application exiting..");
                         Environment.Exit(1);
-                    }
+                    } 
                 }
             }
 
 
             ///
-            /// transmit logic for sending data to cloud service///
+            /// login and transmit logic for sending data to cloud service ///
+            /// and saving process values to txt-file if broken connection.///
             /// 
             SqlConnection sqlconn = new SqlConnection(ConfigurationManager.ConnectionStrings["ModbusLibraryConnectionString"].ConnectionString);
 
 
-            for (int DBloginTries = 0; ; DBloginTries++) //login check. fungerer fint. HUSK Å ADDE REFERANSE TIL KILDEKODEN DU HAR BRUKT SOM UTGANGSPUNKT
+            for (int DBloginTries = 0; ; DBloginTries++) //login check to database
             {
                 try
                 {
@@ -116,19 +116,19 @@ namespace ModbusTCPIP_Consoleapp
                     {
                         sqlconn.Open();
                         int[] readHoldingResisters = modbusclient.ReadHoldingRegisters(0, 1); // read 1 holding registers to array, starting with adress 1(0). 
-                        string query = "INSERT INTO SensorData (ApplicationType, PressureData, logtimeapp)";
+                        string query = "INSERT INTO SensorData (ApplicationType, PressureData, logtimeapp)"; //formulation of the SQL query, to be sent to the database
                         query += " VALUES (@ApplicationType, @PressureData,     @logtimeapp)";
                         SqlCommand cmd = new SqlCommand(query, sqlconn);
 
-                        Pressure.Enqueue(Convert.ToString(readHoldingResisters[0]));
+                        Pressure.Enqueue(Convert.ToString(readHoldingResisters[0]));//enqueuing values to the queue
 
-                        cmd.Parameters.AddWithValue("@ApplicationType", "ConsoleApp");
+                        cmd.Parameters.AddWithValue("@ApplicationType", "ConsoleApp"); //adding parameters to the sql command
                         cmd.Parameters.AddWithValue("@PressureData", readHoldingResisters[0]);
                         cmd.Parameters.AddWithValue("@logtimeapp", DateTime.Now);
                         Console.WriteLine(Pressure.Dequeue()); //dequeuing the values in the queue
                         cmd.ExecuteNonQuery();//excetutes sql query to the database
                         sqlconn.Close();
-                        Thread.Sleep(samplingtime);//define this in app.config
+                        Thread.Sleep(samplingtime);//Samplingtime, defined in app.config
                     }
                     //break;
                 }
